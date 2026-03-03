@@ -4,7 +4,7 @@ Proxy de compatibilite pour connecter des outils de vibe coding (Mistral Vibe CL
 
 ## Pourquoi ce proxy ?
 
-Albert API est basee sur [OpenGateLLM](https://github.com/etalab-ia/OpenGateLLM), qui expose une API compatible OpenAI. En pratique, certains clients (Mistral Vibe CLI, OpenCode) envoient des champs non supportes par OpenGateLLM, notamment :
+Albert API est basee sur [OpenGateLLM](https://github.com/etalab-ia/OpenGateLLM), qui expose une API compatible OpenAI. En pratique, certains clients (Mistral Vibe CLI, Claude Code) envoient des champs non supportes par OpenGateLLM, notamment :
 
 - **strict: null** dans les tool definitions (OpenGateLLM attend un booleen, pas null)
 - **parallel_tool_calls**, **stream_options**, etc. non reconnus
