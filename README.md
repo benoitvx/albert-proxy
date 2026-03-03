@@ -1,6 +1,6 @@
 # albert-proxy
 
-Proxy de compatibilite pour connecter des outils de vibe coding (Mistral Vibe CLI, OpenCode, etc.) a [Albert API](https://albert.api.etalab.gouv.fr), l'API IA interministerielle operee par la DINUM.
+Proxy de compatibilite pour connecter des outils de vibe coding (Mistral Vibe CLI, Claude Code, etc.) a [Albert API](https://albert.api.etalab.gouv.fr), l'API IA interministerielle operee par la DINUM.
 
 ## Pourquoi ce proxy ?
 
