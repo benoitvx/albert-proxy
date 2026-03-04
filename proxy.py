@@ -30,6 +30,7 @@ from typing import Any, Dict
 
 import httpx
 from fastapi import FastAPI, Request, Response
+from fastapi.responses import StreamingResponse
 
 # ---------------------------------------------------------------------------
 # Configuration (variables d'environnement)
@@ -83,7 +84,7 @@ def fix_payload(body: Dict[str, Any]) -> Dict[str, Any]:
 
 
 @app.api_route("/{path:path}", methods=["GET", "POST", "PUT", "DELETE"])
-async def proxy(path: str, request: Request) -> Response:
+async def proxy(path: str, request: Request):
     """Forward toutes les requetes vers Albert apres nettoyage."""
     if not ALBERT_API_KEY:
         return Response(
@@ -94,11 +95,13 @@ async def proxy(path: str, request: Request) -> Response:
 
     raw_body = await request.body()
     content_to_send = raw_body
+    is_stream = False
 
     if raw_body:
         try:
             body = json.loads(raw_body)
             log(f">>> AVANT fix /{path}", json.dumps(body, indent=2, ensure_ascii=False)[:2000])
+            is_stream = body.get("stream", False)
             body = fix_payload(body)
             log(f">>> APRES fix /{path}", json.dumps(body, indent=2, ensure_ascii=False)[:2000])
             content_to_send = json.dumps(body).encode()
@@ -110,12 +113,20 @@ async def proxy(path: str, request: Request) -> Response:
         "Content-Type": "application/json",
     }
 
+    if is_stream:
+        return await _proxy_stream(request.method, path, content_to_send, headers)
+    else:
+        return await _proxy_buffered(request.method, path, content_to_send, headers)
+
+
+async def _proxy_buffered(method: str, path: str, content: bytes, headers: dict) -> Response:
+    """Requete classique : attend la reponse complete et la renvoie."""
     try:
         async with httpx.AsyncClient(timeout=TIMEOUT) as client:
             resp = await client.request(
-                request.method,
+                method,
                 f"{ALBERT_BASE_URL}/{path}",
-                content=content_to_send,
+                content=content,
                 headers=headers,
             )
     except httpx.TimeoutException:
@@ -137,4 +148,71 @@ async def proxy(path: str, request: Request) -> Response:
         content=resp.content,
         status_code=resp.status_code,
         media_type=resp.headers.get("content-type", "application/json"),
+    )
+
+
+async def _proxy_stream(method: str, path: str, content: bytes, headers: dict):
+    """Requete streaming : forward les chunks SSE au fur et a mesure."""
+    client = httpx.AsyncClient(timeout=httpx.Timeout(TIMEOUT, connect=10.0))
+
+    try:
+        req = client.build_request(
+            method,
+            f"{ALBERT_BASE_URL}/{path}",
+            content=content,
+            headers=headers,
+        )
+        resp = await client.send(req, stream=True)
+    except httpx.TimeoutException:
+        await client.aclose()
+        return Response(
+            content=json.dumps({"error": f"Albert API timeout ({TIMEOUT}s)"}),
+            status_code=504,
+            media_type="application/json",
+        )
+    except httpx.RequestError as e:
+        await client.aclose()
+        return Response(
+            content=json.dumps({"error": f"Network error: {e}"}),
+            status_code=502,
+            media_type="application/json",
+        )
+
+    if resp.status_code != 200:
+        body = await resp.aread()
+        await resp.aclose()
+        await client.aclose()
+        log(f"<<< Albert {resp.status_code} (erreur)", body.decode(errors="replace")[:2000])
+        return Response(
+            content=body,
+            status_code=resp.status_code,
+            media_type=resp.headers.get("content-type", "application/json"),
+        )
+
+    async def stream_generator():
+        chunk_count = 0
+        last_chunk = b""
+        try:
+            async for chunk in resp.aiter_raw():
+                chunk_count += 1
+                if DEBUG and chunk_count == 1:
+                    log("<<< Albert 200 (stream debut)", chunk.decode(errors="replace")[:2000])
+                last_chunk = chunk
+                yield chunk
+        finally:
+            if DEBUG:
+                log("<<< stream termine", f"{chunk_count} chunks envoyes")
+                log("<<< dernier chunk", last_chunk.decode(errors="replace")[:2000])
+            await resp.aclose()
+            await client.aclose()
+
+    return StreamingResponse(
+        stream_generator(),
+        status_code=resp.status_code,
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
     )
