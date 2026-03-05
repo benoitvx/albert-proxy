@@ -1,0 +1,11 @@
+services:
+  albert-proxy:
+    build: .
+    ports:
+      - '4000:4000'
+    environment:
+      - ALBERT_API_KEY=${ALBERT_API_KEY}
+      - ALBERT_BASE_URL=${ALBERT_BASE_URL:-https://albert.api.etalab.gouv.fr/v1}
+      - PROXY_TIMEOUT=${PROXY_TIMEOUT:-300}
+      - PROXY_DEBUG=${PROXY_DEBUG:-0}
+    restart: unless-stopped
