@@ -30,6 +30,10 @@ import sys
 from datetime import datetime
 from typing import Any, Dict
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 import httpx
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import StreamingResponse
