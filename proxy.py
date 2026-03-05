@@ -30,6 +30,10 @@ import sys
 from datetime import datetime
 from typing import Any, Dict
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 import httpx
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import StreamingResponse
@@ -46,6 +50,12 @@ app = FastAPI(
     title="albert-proxy",
     description="Proxy de compatibilite pour Albert API (OpenGateLLM)",
 )
+
+
+@app.get("/health")
+def health():
+    """Health check endpoint for Docker/Kubernetes probes."""
+    return {"status": "ok"}
 
 # ---------------------------------------------------------------------------
 # Champs OpenAI non supportes par OpenGateLLM

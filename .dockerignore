@@ -1,0 +1,9 @@
+.git
+.env
+venv/
+.venv/
+__pycache__
+*.pyc
+LICENSE
+README.md
+CLAUDE.md
