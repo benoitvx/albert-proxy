@@ -298,6 +298,8 @@ async def _proxy_stream(method: str, path: str, content: bytes, headers: dict):
                 chunk_count += 1
                 if DEBUG and chunk_count == 1:
                     log("<<< Albert 200 (stream debut)", chunk.decode(errors="replace")[:2000])
+                if DEBUG and b"tool_calls" in chunk:
+                    log(f"<<< TOOL_CALL chunk #{chunk_count}", chunk.decode(errors="replace")[:2000])
                 last_chunk = chunk
                 yield chunk
         finally:
